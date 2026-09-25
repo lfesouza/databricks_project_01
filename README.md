@@ -88,7 +88,6 @@ e todas as convenções do projeto estão em [`lakeflow_project/CLAUDE.md`](lake
 ## Estrutura
 
 ```text
-bases/                          CSVs de referência (a bronze é carregada do Supabase Storage)
 lakeflow_project/
 ├── databricks.yml              bundle: variáveis (catálogo, warehouse) e targets dev/prod
 ├── resources/                  pipeline, job, dashboards e Genie space
