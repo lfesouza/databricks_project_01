@@ -87,6 +87,31 @@ Claude Code loads it via the import below.
 | Diretoria de Customer Success | `diretoria_customer_success` | gold.clientes_segmentacao |
 | Diretoria de Pricing | `diretoria_pricing` | gold.precos_competitividade |
 
+- Botão "Ask Genie": `uiSettings.genieSpace.overrideId` de cada dashboard aponta para o space
+  "Diretoria E-commerce" de DEV (`01f1b87dc664122ba8f03fc378899e4e`), fixo no JSON. Em prod o space
+  tem outro id: troque o `overrideId` antes de publicar em prod.
+
+## Convenções do Genie space (agente "Diretoria E-commerce")
+
+- Um único space para as três diretorias. Conteúdo em `src/genie/diretoria_ecommerce.geniespace.json`
+  (serialized space v2) e recurso em `resources/diretoria.genie_space.yml` (`warehouse_id:
+  ${var.warehouse_id}`, `parent_path: ${workspace.root_path}` para não colidir com outro space de
+  mesmo nome na pasta do usuário).
+- Mudou uma instrução? Edite o JSON e faça deploy. Nunca ajuste o space pela interface: o próximo
+  deploy sobrescreve.
+- Os identificadores das tabelas e o SQL de exemplo estão escritos no JSON como
+  `ecommerce.gold.<tabela>`, porque o arquivo não passa por variáveis do bundle. Se o catálogo mudar
+  (ex.: em prod), troque no JSON.
+- Só as 5 golds entram no space; nada de bronze ou silver.
+- Instruções gerais curtas (até ~2.500 caracteres), só com regra de negócio que não cabe em
+  comentário de coluna; não repita o comentário. Regra que falha em texto vai como SQL de exemplo
+  ou como formato de resposta explícito.
+- SQL de exemplo nunca repete as perguntas do teste de aceitação (senão o teste vira cola) e é
+  testado no warehouse antes do deploy. IDs dos itens: 32 hex, ordenados.
+- Teste de aceitação: 10 perguntas + 2 de limite ("Qual foi o nosso lucro?", "Quanto vendemos
+  ontem?") pela API de conversa do Genie, comparando com SQL direto na gold. Acerto = resposta com
+  todos os números esperados. Placar final: 10/10 e 2/2 (rodada 6).
+
 Job "Pipeline E-commerce" (`resources/pipeline_ecommerce.job.yml`): roda o pipeline e depois
 `testes/testes_qualidade.py`. Deploy: `databricks bundle validate --strict -t dev`,
 `databricks bundle deploy -t dev`, `databricks bundle run pipeline_ecommerce -t dev`.

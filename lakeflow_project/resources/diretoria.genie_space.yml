@@ -1,0 +1,16 @@
+# Genie space "Diretoria E-commerce": os diretores Comercial, Customer Success e Pricing perguntam
+# em português em cima das 5 tabelas gold.
+# - O conteúdo do space (tabelas, instruções, joins, SQL de exemplo, sinônimos) é o JSON em
+#   src/genie/diretoria_ecommerce.geniespace.json. Mudou algo? Edite o JSON e faça deploy: ajuste
+#   feito na interface se perde no próximo deploy.
+# - parent_path no root_path do bundle, para não colidir com outro space de mesmo nome na pasta do
+#   usuário.
+
+resources:
+  genie_spaces:
+    diretoria_ecommerce:
+      title: "Diretoria E-commerce"
+      description: "Perguntas em português sobre vendas (Comercial), clientes (Customer Success) e preços da concorrência (Pricing). Período dos dados: 13/12/2025 a 11/01/2026."
+      warehouse_id: ${var.warehouse_id}
+      parent_path: ${workspace.root_path}
+      file_path: ../src/genie/diretoria_ecommerce.geniespace.json
