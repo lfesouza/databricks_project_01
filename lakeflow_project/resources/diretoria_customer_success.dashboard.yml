@@ -1,0 +1,13 @@
+# Dashboard AI/BI "Diretoria de Customer Success".
+# Diretoria de Customer Success: quem são os melhores clientes e onde estão.
+# As consultas usam só o nome da tabela (FROM <tabela>): o catálogo vem de ${var.catalog} e o schema
+# é sempre gold, para o mesmo dashboard funcionar em dev e prod.
+
+resources:
+  dashboards:
+    diretoria_customer_success:
+      display_name: "Diretoria de Customer Success"
+      file_path: ../src/dashboards/diretoria_customer_success.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: gold

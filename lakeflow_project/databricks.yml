@@ -13,6 +13,10 @@ variables:
     description: The catalog to use
   schema:
     description: The schema to use
+  warehouse_id:
+    description: SQL warehouse dos dashboards AI/BI (resolvido pelo nome em cada workspace)
+    lookup:
+      warehouse: "Serverless Starter Warehouse"
 
 targets:
   dev:

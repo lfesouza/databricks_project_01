@@ -1,0 +1,983 @@
+{
+  "datasets": [
+    {
+      "name": "ds_vendas",
+      "displayName": "Vendas (uma linha por venda)",
+      "queryLines": [
+        "SELECT\n",
+        "  id_venda,\n",
+        "  data,\n",
+        "  dia_semana,\n",
+        "  dia_semana_num,\n",
+        "  hora,\n",
+        "  CONCAT(LPAD(CAST(hora AS STRING), 2, '0'), 'h') AS hora_rotulo,\n",
+        "  CASE canal_venda WHEN 'ecommerce' THEN 'E-commerce' WHEN 'loja_fisica' THEN 'Loja física' ELSE canal_venda END AS canal,\n",
+        "  id_produto,\n",
+        "  nome_produto,\n",
+        "  categoria,\n",
+        "  quantidade,\n",
+        "  receita\n",
+        "FROM vendas_detalhadas\n"
+      ],
+      "columns": [
+        {
+          "displayName": "Ticket médio",
+          "description": "Receita total ÷ número de vendas (nunca média de médias)",
+          "expression": "SUM(`receita`) / COUNT(`id_venda`)"
+        },
+        {
+          "displayName": "Receita média por dia",
+          "description": "Receita ÷ dias com venda; compara dias da semana com quantidades diferentes de ocorrências no período",
+          "expression": "SUM(`receita`) / COUNT(DISTINCT `data`)"
+        }
+      ]
+    },
+    {
+      "name": "ds_top10",
+      "displayName": "Top 10 produtos por receita",
+      "queryLines": [
+        "WITH vendas AS (\n",
+        "  SELECT\n",
+        "    id_produto,\n",
+        "    nome_produto,\n",
+        "    categoria,\n",
+        "    CASE canal_venda WHEN 'ecommerce' THEN 'E-commerce' WHEN 'loja_fisica' THEN 'Loja física' ELSE canal_venda END AS canal,\n",
+        "    data,\n",
+        "    quantidade,\n",
+        "    receita\n",
+        "  FROM vendas_detalhadas\n",
+        ")\n",
+        "SELECT\n",
+        "  id_produto,\n",
+        "  nome_produto,\n",
+        "  categoria,\n",
+        "  COUNT(*) AS vendas,\n",
+        "  SUM(quantidade) AS itens_vendidos,\n",
+        "  SUM(receita) AS receita,\n",
+        "  CAST(SUM(receita) / COUNT(*) AS DECIMAL(10,2)) AS ticket_medio\n",
+        "FROM vendas\n",
+        "WHERE data BETWEEN :periodo.min AND :periodo.max\n",
+        "  AND (size(:canal) = 0 OR array_contains(:canal, canal))\n",
+        "GROUP BY id_produto, nome_produto, categoria\n",
+        "ORDER BY receita DESC, id_produto\n",
+        "LIMIT 10\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "periodo",
+          "keyword": "periodo",
+          "dataType": "DATE",
+          "complexType": "RANGE",
+          "defaultSelection": {
+            "range": {
+              "dataType": "DATE",
+              "min": {
+                "value": "2025-12-13"
+              },
+              "max": {
+                "value": "2026-01-11"
+              }
+            }
+          }
+        },
+        {
+          "displayName": "canal",
+          "keyword": "canal",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "comercial",
+      "displayName": "Diretoria Comercial",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "cabecalho",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Diretoria Comercial\n",
+                "\n",
+                "Quanto vendemos, quando, em qual canal e com quais produtos · **Período:** 13/12/2025 a 11/01/2026 · **Fonte:** ecommerce.gold.vendas_detalhadas · Valores em R$ · Datas e horas em UTC"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filtro_periodo",
+            "queries": [
+              {
+                "name": "filtro_periodo_ds_vendas",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "data",
+                      "expression": "`data`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filtro_periodo_ds_top10",
+                "query": {
+                  "datasetName": "ds_top10",
+                  "parameters": [
+                    {
+                      "name": "periodo",
+                      "keyword": "periodo"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "data",
+                    "displayName": "Período (UTC)",
+                    "queryName": "filtro_periodo_ds_vendas"
+                  },
+                  {
+                    "parameterName": "periodo",
+                    "queryName": "filtro_periodo_ds_top10"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Período (UTC)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filtro_canal",
+            "queries": [
+              {
+                "name": "filtro_canal_ds_vendas",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "canal",
+                      "expression": "`canal`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filtro_canal_ds_top10",
+                "query": {
+                  "datasetName": "ds_top10",
+                  "parameters": [
+                    {
+                      "name": "canal",
+                      "keyword": "canal"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "canal",
+                    "displayName": "Canal",
+                    "queryName": "filtro_canal_ds_vendas"
+                  },
+                  {
+                    "parameterName": "canal",
+                    "queryName": "filtro_canal_ds_top10"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Canal"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_receita",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "sum(receita)",
+                      "expression": "SUM(`receita`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(receita)",
+                  "displayName": "Receita",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receita"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_vendas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "count(id_venda)",
+                      "expression": "COUNT(`id_venda`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(id_venda)",
+                  "displayName": "Vendas",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Vendas",
+                "showDescription": true,
+                "description": "Número de pedidos"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 4,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_ticket",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "measure(Ticket médio)",
+                      "expression": "MEASURE(`Ticket médio`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Ticket médio)",
+                  "displayName": "Ticket médio",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ticket médio",
+                "showDescription": true,
+                "description": "Receita ÷ número de vendas"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_itens",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "sum(quantidade)",
+                      "expression": "SUM(`quantidade`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(quantidade)",
+                  "displayName": "Itens vendidos",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Itens vendidos",
+                "showDescription": true,
+                "description": "Unidades de produto"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 4,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "receita_por_dia",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "daily(data)",
+                      "expression": "DATE_TRUNC(\"DAY\", `data`)"
+                    },
+                    {
+                      "name": "canal",
+                      "expression": "`canal`"
+                    },
+                    {
+                      "name": "sum(receita)",
+                      "expression": "SUM(`receita`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(data)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Data (UTC)"
+                },
+                "y": {
+                  "fieldName": "sum(receita)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Receita (R$)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "canal",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "E-commerce",
+                        "color": "#0072B2"
+                      },
+                      {
+                        "value": "Loja física",
+                        "color": "#E69F00"
+                      }
+                    ]
+                  },
+                  "displayName": "Canal"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receita por dia e canal"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 8,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "receita_por_canal",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "canal",
+                      "expression": "`canal`"
+                    },
+                    {
+                      "name": "sum(receita)",
+                      "expression": "SUM(`receita`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "canal",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Canal"
+                },
+                "y": {
+                  "fieldName": "sum(receita)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Receita (R$)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "canal",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "E-commerce",
+                        "color": "#0072B2"
+                      },
+                      {
+                        "value": "Loja física",
+                        "color": "#E69F00"
+                      }
+                    ]
+                  },
+                  "displayName": "Canal"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receita por canal"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 7,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "receita_media_dia_semana",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "dia_semana",
+                      "expression": "`dia_semana`"
+                    },
+                    {
+                      "name": "measure(Receita média por dia)",
+                      "expression": "MEASURE(`Receita média por dia`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "dia_semana",
+                  "displayName": "Dia da semana (UTC)",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "Domingo",
+                        "Segunda",
+                        "Terça",
+                        "Quarta",
+                        "Quinta",
+                        "Sexta",
+                        "Sábado"
+                      ]
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Receita média por dia)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Receita média por dia (R$)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receita média por dia da semana",
+                "showDescription": true,
+                "description": "Receita do dia da semana ÷ nº de dias em que ele ocorreu (o período tem 5 sábados e 5 domingos e 4 de cada dia útil)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "receita_por_hora",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "hora_rotulo",
+                      "expression": "`hora_rotulo`"
+                    },
+                    {
+                      "name": "sum(receita)",
+                      "expression": "SUM(`receita`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "hora_rotulo",
+                  "displayName": "Hora (UTC)",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(receita)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Receita (R$)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receita por hora do dia",
+                "showDescription": true,
+                "description": "Horário em UTC; horas sem venda não aparecem"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 13,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "receita_por_categoria",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_vendas",
+                  "fields": [
+                    {
+                      "name": "categoria",
+                      "expression": "`categoria`"
+                    },
+                    {
+                      "name": "sum(receita)",
+                      "expression": "SUM(`receita`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(receita)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Receita (R$)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "categoria",
+                  "displayName": "Categoria",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x-reversed"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Receita por categoria"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "top10_produtos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_top10",
+                  "fields": [
+                    {
+                      "name": "nome_produto",
+                      "expression": "`nome_produto`"
+                    },
+                    {
+                      "name": "id_produto",
+                      "expression": "`id_produto`"
+                    },
+                    {
+                      "name": "categoria",
+                      "expression": "`categoria`"
+                    },
+                    {
+                      "name": "vendas",
+                      "expression": "`vendas`"
+                    },
+                    {
+                      "name": "itens_vendidos",
+                      "expression": "`itens_vendidos`"
+                    },
+                    {
+                      "name": "receita",
+                      "expression": "`receita`"
+                    },
+                    {
+                      "name": "ticket_medio",
+                      "expression": "`ticket_medio`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "nome_produto",
+                    "displayName": "Produto"
+                  },
+                  {
+                    "fieldName": "id_produto",
+                    "displayName": "ID do produto"
+                  },
+                  {
+                    "fieldName": "categoria",
+                    "displayName": "Categoria"
+                  },
+                  {
+                    "fieldName": "vendas",
+                    "displayName": "Vendas",
+                    "format": {
+                      "type": "number-plain",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "itens_vendidos",
+                    "displayName": "Itens vendidos",
+                    "format": {
+                      "type": "number-plain",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "receita",
+                    "displayName": "Receita (R$)",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "BRL",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "ticket_medio",
+                    "displayName": "Ticket médio (R$)",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "BRL",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 produtos por receita",
+                "showDescription": true,
+                "description": "Agrupado por ID do produto (há nomes repetidos); respeita os filtros de período e canal"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 12,
+            "height": 7
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F7F8FA",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#11171C",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#0072B2",
+        "dark": "#8ACAFF"
+      },
+      "visualizationColors": [
+        "#0072B2",
+        "#E69F00",
+        "#009E73",
+        "#CC79A7",
+        "#56B4E9",
+        "#D55E00",
+        "#F0E442"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "widgetCornerRadius": 8
+    }
+  }
+}

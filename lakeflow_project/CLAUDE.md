@@ -53,6 +53,40 @@ Claude Code loads it via the import below.
 | gold.vendas_detalhadas | id_venda (CLUSTER BY data) | cruzamentos entre diretorias |
 | gold.precos_competitividade | id_produto com preço de concorrente | Pricing |
 
+## Convenções de dashboards (AI/BI)
+
+- Um dashboard por diretoria, como código: `src/dashboards/<nome>.lvdash.json` com o recurso em
+  `resources/<nome>.dashboard.yml` (`warehouse_id: ${var.warehouse_id}`, variável com lookup do
+  warehouse "Serverless Starter Warehouse" no `databricks.yml`; `dataset_catalog: ${var.catalog}`;
+  `dataset_schema: gold`).
+- Consultas com o nome da tabela sem catálogo nem schema (`FROM vendas_temporais`), para o mesmo
+  dashboard funcionar em dev e prod.
+- Tudo em português: título, subtítulo com período e fonte dos dados, gráficos e eixos. Canais
+  exibidos como "E-commerce" e "Loja física". Dinheiro em R$ (`currencyCode: BRL`).
+- Layout de leitura rápida: título, filtros, uma linha de KPIs, gráficos e uma tabela de detalhe para agir.
+- Período fixo 13/12/2025 a 11/01/2026: nunca `current_date()`.
+- Regras que o gráfico não pode quebrar:
+  - ticket médio = receita total ÷ número de vendas, nunca média de médias
+    (`SUM(receita)/SUM(total_vendas)` em vendas_temporais, `COUNT(*)` em vendas_detalhadas,
+    `SUM(total_compras)` em clientes_segmentacao);
+  - nunca somar `clientes_unicos` entre linhas;
+  - produto se conta e se agrupa por `id_produto` (há nomes repetidos);
+  - dia da semana se compara pela receita MÉDIA por dia (`SUM(receita)/COUNT(DISTINCT data)`): o
+    período tem 5 sábados e 5 domingos e só 4 de cada dia útil.
+- Data e hora estão em UTC: diga isso no eixo/título.
+- `diferenca_pct_*` está em pontos percentuais (10 = 10%): divida por 100 para usar o formato de %.
+- Preço suspeito (`possui_preco_suspeito`) é erro de coleta ou promoção: sempre separe
+  "Confirmado" de "Preço a conferir" em KPI, gráfico e tabela de Pricing.
+- Top N agrega antes do LIMIT em dataset próprio, com parâmetros ligados aos mesmos filtros.
+- Antes do deploy, teste TODAS as consultas dos datasets no warehouse e confira os KPIs com os
+  números de referência abaixo.
+
+| Dashboard | Arquivo | Tabelas |
+|---|---|---|
+| Diretoria Comercial | `diretoria_comercial` | gold.vendas_detalhadas |
+| Diretoria de Customer Success | `diretoria_customer_success` | gold.clientes_segmentacao |
+| Diretoria de Pricing | `diretoria_pricing` | gold.precos_competitividade |
+
 Job "Pipeline E-commerce" (`resources/pipeline_ecommerce.job.yml`): roda o pipeline e depois
 `testes/testes_qualidade.py`. Deploy: `databricks bundle validate --strict -t dev`,
 `databricks bundle deploy -t dev`, `databricks bundle run pipeline_ecommerce -t dev`.
