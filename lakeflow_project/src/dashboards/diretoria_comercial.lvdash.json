@@ -978,6 +978,11 @@
       ],
       "widgetHeaderAlignment": "LEFT",
       "widgetCornerRadius": 8
+    },
+    "genieSpace": {
+      "isEnabled": true,
+      "overrideId": "01f1b87dc664122ba8f03fc378899e4e",
+      "enablementMode": "ENABLED"
     }
   }
 }
