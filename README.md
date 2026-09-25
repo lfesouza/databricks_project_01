@@ -7,7 +7,7 @@ Tudo como código, em um único Declarative Automation Bundle (antigo Databricks
 
 ```mermaid
 flowchart LR
-    CSV["bases/*.csv"] --> B[("bronze")]
+    SB["Supabase Storage<br/>bucket S3 · CSVs"] --> B[("bronze")]
     B --> S["silver<br/>Python · Lakeflow"]
     S --> G["gold<br/>SQL · materialized views"]
     G --> D["3 dashboards AI/BI"]
@@ -20,7 +20,7 @@ flowchart LR
 
 | Camada | O que faz | Onde |
 |---|---|---|
-| Bronze | Vendas, produtos, clientes e preços de concorrentes, como chegam da origem | `bases/` |
+| Bronze | Vendas, produtos, clientes e preços de concorrentes, como chegam da origem | Bucket S3 no Supabase Storage |
 | Silver | Limpeza, tipos, deduplicação e **marcação** (sem descarte) de problemas de qualidade, medidos com expectations | `lakeflow_project/src/lakeflow_project_etl/transformations/silver/` |
 | Gold | Uma tabela por pergunta de negócio, com comentário em cada coluna (unidade, regra de cálculo, o que não pode ser somado) | `lakeflow_project/src/lakeflow_project_etl/transformations/gold/` |
 | Dashboards | Um dashboard AI/BI por diretoria: Comercial, Customer Success e Pricing | `lakeflow_project/src/dashboards/` |
@@ -88,7 +88,7 @@ e todas as convenções do projeto estão em [`lakeflow_project/CLAUDE.md`](lake
 ## Estrutura
 
 ```text
-bases/                          CSVs de origem (bronze)
+bases/                          CSVs de referência (a bronze é carregada do Supabase Storage)
 lakeflow_project/
 ├── databricks.yml              bundle: variáveis (catálogo, warehouse) e targets dev/prod
 ├── resources/                  pipeline, job, dashboards e Genie space
